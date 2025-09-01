@@ -20,6 +20,11 @@ const UserSchema = new mongoose.Schema({
     minlength: 6,
     select: false,
   },
+  fcmTokens: [
+    {
+      type: String, // each token is a string
+    }
+  ],
   createdAt: {
     type: Date,
     default: Date.now,
