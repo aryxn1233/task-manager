@@ -2,17 +2,10 @@ const User = require('../models/User');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 
-//     Register user
-// POST /api/auth/register
-exports.register = async (req, res) => {
+exports.register = async (req, res, next) => {
   const { name, email, password } = req.body;
 
   try {
-    const existingUser = await User.findOne({ email });
-    if (existingUser) {
-      return res.status(400).json({ success: false, error: 'User already exists' });
-    }
-
     const salt = await bcrypt.genSalt(10);
     const hashedPassword = await bcrypt.hash(password, salt);
 
@@ -40,47 +33,55 @@ exports.register = async (req, res) => {
   }
 };
 
-//    Login user
-//   POST /api/auth/login
-exports.login = async (req, res) => {
+exports.login = async (req, res, next) => {
   const { email, password } = req.body;
 
   if (!email || !password) {
-    return res.status(400).json({ success: false, error: 'Please provide an email and password' });
+    return res
+      .status(400)
+      .json({ success: false, error: 'Please provide an email and password' });
   }
 
-  try {
-    const user = await User.findOne({ email }).select('+password');
-    if (!user) {
-      return res.status(401).json({ success: false, error: 'Invalid credentials' });
-    }
-
-    const isMatch = await bcrypt.compare(password, user.password);
-    if (!isMatch) {
-      return res.status(401).json({ success: false, error: 'Invalid credentials' });
-    }
-
-    const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, {
-      expiresIn: '30d',
-    });
-
-    res.status(200).json({
-      success: true,
-      token,
-      user: {
-        id: user._id,
-        name: user.name,
-        email: user.email,
-        fcmTokens: user.fcmTokens, 
-      },
-    });
-  } catch (error) {
-    res.status(500).json({ success: false, error: 'Server error' });
+  const user = await User.findOne({ email }).select('+password');
+  if (!user) {
+    return res.status(401).json({ success: false, error: 'Invalid credentials' });
   }
+
+  const isMatch = await bcrypt.compare(password, user.password);
+  if (!isMatch) {
+    return res.status(401).json({ success: false, error: 'Invalid credentials' });
+  }
+
+  const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, {
+    expiresIn: '30d',
+  });
+
+  res.status(200).json({
+    success: true,
+    token,
+    user: {
+      id: user._id,
+      name: user.name,
+      email: user.email,
+    },
+  });
 };
 
-
+// Example FCM token saver (optional)
 exports.saveFcmToken = async (req, res) => {
   try {
-    const userId = req.user.id; 
-    const { token
+    const { fcmToken } = req.body;
+    const user = await User.findById(req.user.id);
+
+    if (!user) return res.status(404).json({ success: false, error: 'User not found' });
+
+    if (!user.fcmTokens.includes(fcmToken)) {
+      user.fcmTokens.push(fcmToken);
+      await user.save();
+    }
+
+    res.status(200).json({ success: true, message: 'FCM token saved successfully' });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+};
