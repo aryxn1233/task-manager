@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const { register, login, saveFcmToken } = require('../controllers/auth');
-const authMiddleware = require('../middleware/authMiddleware'); 
+const authMiddleware = require('../middleware/auth.js'); 
 
 // Auth routes
 router.post('/register', register);
